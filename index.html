@@ -152,5 +152,17 @@ h1{font-size:clamp(1.25rem,5vw,1.8rem);margin:0;font-weight:800;letter-spacing:.
   render();
 })();
 </script>
+
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./service-worker.js")
+        .catch((error) => console.error(
+          "Erreur d'enregistrement du service worker :", error
+        ));
+    });
+  }
+</script>
+
 </body>
 </html>
