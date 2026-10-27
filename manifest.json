@@ -1,0 +1,13 @@
+
+{
+  "id": "/Simple-Domino-Score/",
+  "name": "Simple Domino Score",
+  "short_name": "Dominos",
+  "description": "Compteur de points pour une partie de dominos",
+  "start_url": "/Simple-Domino-Score/",
+  "scope": "/Simple-Domino-Score/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#10131a",
+  "theme_color": "#10131a"
+}
