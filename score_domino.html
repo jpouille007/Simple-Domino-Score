@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#172033">
+<title>Domino — compteur</title>
+<style>
+:root{color-scheme:dark;--bg:#111827;--panel:#202b40;--line:#344158;--text:#f8fafc;--muted:#aab6ca;--accent:#7c9cff;--danger:#ff7777;--ok:#73e0a5}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;min-height:100%;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
+body{min-height:100dvh;padding:env(safe-area-inset-top) 10px env(safe-area-inset-bottom);display:flex;justify-content:center}
+main{width:100%;max-width:760px;min-height:100dvh;display:flex;flex-direction:column;padding:10px 0 8px;gap:9px}
+header{text-align:center;flex:0 0 auto}
+h1{font-size:clamp(1.25rem,5vw,1.8rem);margin:0;font-weight:800;letter-spacing:.2px}
+.subtitle{font-size:.78rem;color:var(--muted);margin:2px 0 0}
+#banner{display:none;text-align:center;border-radius:12px;padding:8px;font-weight:800;background:#4a2029;color:#ffd5d5;font-size:.95rem}
+#banner.show{display:block}
+.players{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:8px;flex:1;min-height:0}
+.player{min-width:0;display:flex;flex-direction:column;gap:7px;padding:10px;background:var(--panel);border:1px solid var(--line);border-radius:15px}
+.player.loser{border:2px solid var(--danger);background:#3a202b}
+.name{width:100%;min-width:0;border:1px solid var(--line);border-radius:9px;background:#131c2d;color:var(--text);font:600 1rem system-ui;padding:8px;text-align:center}
+.scorebox{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0}
+.score{font-size:clamp(2.6rem,12vw,4.8rem);line-height:1;font-weight:850;letter-spacing:-2px;font-variant-numeric:tabular-nums}
+.remaining{font-size:.72rem;color:var(--muted);margin-top:5px}
+.player.loser .score,.player.loser .remaining{color:var(--danger)}
+.addrow{display:flex;gap:6px;margin-top:auto}
+.points{width:0;min-width:0;flex:1;border:1px solid var(--line);border-radius:9px;background:#131c2d;color:var(--text);padding:9px 5px;font:600 1rem system-ui;text-align:center}
+.add{border:0;border-radius:9px;background:var(--accent);color:#10182a;font:800 .88rem system-ui;padding:0 11px;min-height:40px;white-space:nowrap}
+.add:disabled{opacity:.35}
+.status{font-size:.75rem;text-align:center;font-weight:800;min-height:1em;color:var(--danger)}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:0 0 auto}
+.actions button{min-height:43px;border-radius:11px;padding:8px;font:700 .85rem system-ui}
+.reset{background:#29364d;color:var(--text);border:1px solid var(--line)}
+.new{background:#e7ecff;color:#1b2c60;border:0}
+.note{text-align:center;color:var(--muted);font-size:.68rem;margin:0;flex:0 0 auto}
+@media (max-height:650px){
+ main{gap:6px;padding-top:6px}
+ .player{padding:7px;gap:5px;border-radius:12px}
+ .name{padding:6px;font-size:.9rem}
+ .score{font-size:clamp(2.1rem,9vh,3.6rem)}
+ .remaining{margin-top:3px}
+ .add{min-height:35px;padding:0 8px}
+ .points{padding:6px 3px}
+ .actions button{min-height:38px}
+}
+@media (min-width:600px){
+ .players{grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:minmax(250px,1fr)}
+ .score{font-size:clamp(2.5rem,6vw,4rem)}
+}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>🁣 Domino — Compteur</h1>
+    <p class="subtitle">Départ à 100 · saisissez les points à retirer · premier à 0 = perdant</p>
+  </header>
+  <div id="banner" role="status" aria-live="polite"></div>
+  <section class="players" id="players" aria-label="Joueurs"></section>
+  <div class="actions">
+    <button class="reset" id="resetScores">Réinitialiser les scores</button>
+    <button class="new" id="newGame">Nouvelle partie</button>
+  </div>
+  <p class="note">Sauvegarde automatique sur cet appareil · les scores restent après fermeture.</p>
+</main>
+<script>
+(() => {
+  const KEY = 'dominoCompteur100_v2';
+  const initial = () => Array.from({length:4}, (_,i)=>({name:`Joueur ${i+1}`,score:100}));
+  let players = initial();
+  let loserIndex = null;
+  try {
+    const saved = localStorage.getItem(KEY);
+    if (saved) {
+      const data = JSON.parse(saved);
+      if (Array.isArray(data.players) && data.players.length === 4) {
+        players = data.players.map((p,i)=>({
+          name: typeof p.name === 'string' ? p.name.slice(0,24) : `Joueur ${i+1}`,
+          score: Math.max(0,Math.min(100,Math.trunc(Number(p.score)||0)))
+        }));
+        loserIndex = Number.isInteger(data.loserIndex) && data.loserIndex>=0 && data.loserIndex<4 ? data.loserIndex : null;
+        if (loserIndex === null) {
+          const found = players.findIndex(p=>p.score===0);
+          if (found >= 0) loserIndex = found;
+        }
+      }
+    }
+  } catch(e) {}
+  const root = document.getElementById('players');
+  const banner = document.getElementById('banner');
+
+  function save(){
+    try { localStorage.setItem(KEY, JSON.stringify({players,loserIndex})); } catch(e) {}
+  }
+  function safe(s){
+    return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function render(){
+    root.innerHTML = '';
+    players.forEach((p,i)=>{
+      const card = document.createElement('article');
+      card.className = 'player' + (loserIndex===i ? ' loser':'');
+      card.innerHTML = `
+        <input class="name" maxlength="24" aria-label="Nom du joueur ${i+1}" value="${safe(p.name)}">
+        <div class="scorebox">
+          <div class="score">${p.score}</div>
+          <div class="remaining">${p.score===0?'points — éliminé':'points restants'}</div>
+        </div>
+        <div class="addrow">
+          <input class="points" type="number" min="1" max="100" step="1" inputmode="numeric" placeholder="Points" aria-label="Points à retirer à ${safe(p.name)}">
+          <button class="add" ${loserIndex!==null?'disabled':''}>Ajouter</button>
+        </div>
+        <div class="status">${loserIndex===i?'A PERDU':''}</div>`;
+      card.querySelector('.name').addEventListener('input',e=>{
+        p.name=e.target.value; save();
+        if(loserIndex!==null) updateBanner();
+      });
+      const input = card.querySelector('.points');
+      const apply = ()=>{
+        if(loserIndex!==null) return;
+        if(input.value.trim()==='') { input.focus(); return; }
+        const n = Math.trunc(Number(input.value));
+        if(!Number.isFinite(n) || n<1) { input.value=''; input.focus(); return; }
+        p.score = Math.max(0,p.score-n);
+        if(p.score===0) loserIndex=i;
+        save(); render();
+      };
+      card.querySelector('.add').addEventListener('click',apply);
+      input.addEventListener('keydown',e=>{if(e.key==='Enter')apply();});
+      root.appendChild(card);
+    });
+    updateBanner();
+  }
+  function updateBanner(){
+    if(loserIndex===null){
+      banner.className=''; banner.textContent=''; return;
+    }
+    banner.className='show';
+    banner.textContent=`🏁 ${players[loserIndex].name.trim() || 'Un joueur'} a atteint 0 : il a perdu !`;
+  }
+  document.getElementById('resetScores').addEventListener('click',()=>{
+    if(!confirm('Réinitialiser les scores à 100 pour les quatre joueurs ? Les noms seront conservés.')) return;
+    players.forEach(p=>p.score=100); loserIndex=null; save(); render();
+  });
+  document.getElementById('newGame').addEventListener('click',()=>{
+    if(!confirm('Lancer une nouvelle partie ? Les scores reviendront à 100 et les noms seront conservés.')) return;
+    players.forEach(p=>p.score=100); loserIndex=null; save(); render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>
